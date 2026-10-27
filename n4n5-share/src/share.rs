@@ -19,30 +19,40 @@ const PORT: u16 = 8000;
 
 /// Server state
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     /// Upload dir
-    upload_dir: PathBuf,
+    pub upload_dir: PathBuf,
 }
 
 /// main share function
 /// # Errors
 /// Return error if the server fails
 pub async fn cli_main() -> std::io::Result<()> {
-    let state = Arc::new(AppState {
-        upload_dir: PathBuf::from(UPLOAD_DIR),
-    });
+    let upload_dir = std::env::args()
+        .nth(1)
+        .map_or_else(|| PathBuf::from(UPLOAD_DIR), PathBuf::from);
+    let state = Arc::new(AppState { upload_dir });
+    main_from_app_state(state).await?;
+    Ok(())
+}
 
+/// Main
+/// # Errors
+/// Return error if the server fails
+pub async fn main_from_app_state(state: Arc<AppState>) -> std::io::Result<()> {
+    let upload_dir = state.upload_dir.clone();
     let app = Router::new()
         .route("/", get(index))
         .route("/upload", post(upload))
         .route("/files/{name}", get(download))
+        .route("/view/{name}", get(view))
         .layer(DefaultBodyLimit::max(128 * 1024 * 1024)) // 128Mib
         .with_state(state);
 
     let addr = format!("0.0.0.0:{PORT}");
 
     println!("==================================================");
-    println!(" File Upload Server");
+    println!(" File Upload Server - {}", upload_dir.display());
     println!("==================================================");
     println!("Localhost : http://localhost:{PORT}");
     println!("Loopback  : http://127.0.0.1:{PORT}");
@@ -199,22 +209,24 @@ async fn upload(
     Redirect::to("/").into_response()
 }
 
-/// Show files uploaded
-async fn download(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    axum::extract::Path(name): axum::extract::Path<String>,
-) -> impl IntoResponse {
-    let path = format!("{UPLOAD_DIR}/{}", sanitize(&name));
-    eprintln!("{} is downloading {path}", addr.ip());
+/// Send back the file
+async fn action(name: String, path: String, should_download: bool) -> impl IntoResponse {
     match tokio_fs::read(&path).await {
         Ok(data) => {
             let mime = from_path(&path).first_or_octet_stream();
 
-            match Response::builder()
+            let response = Response::builder()
                 .status(StatusCode::OK)
-                .header(header::CONTENT_TYPE, mime.as_ref())
-                .body(axum::body::Body::from(data))
-            {
+                .header(header::CONTENT_TYPE, mime.as_ref());
+            let response = if should_download {
+                response.header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", sanitize(&name)),
+                )
+            } else {
+                response
+            };
+            match response.body(axum::body::Body::from(data)) {
                 Ok(resp) => resp,
                 Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
             }
@@ -222,6 +234,26 @@ async fn download(
 
         Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
+}
+
+/// Download the file
+async fn download(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let path = format!("{UPLOAD_DIR}/{}", sanitize(&name));
+    eprintln!("{} is downloading {path}", addr.ip());
+    action(name, path, true).await
+}
+
+/// View the file
+async fn view(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let path = format!("{UPLOAD_DIR}/{}", sanitize(&name));
+    eprintln!("{} is downloading {path}", addr.ip());
+    action(name, path, false).await
 }
 
 /// Quick and dirty sanitize
