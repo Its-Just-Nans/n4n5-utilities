@@ -1,0 +1,40 @@
+name: testing
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run cmd
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to .
+          ls
+          git clone https://github.com/maplibre/maplibre-native-rs.git
+          cd maplibre-native-rs
+          ../just install-dependencies vulkan
+          ../just install-dependencies opengl
+          ../just install-dependencies glx
+          cd ..
+          ls
+          cargo build --release
+          ls
+          cargo run --release -- --lat 16.2712 --lng -61.5053 --style "https://dev2.cartes.app/api/styles?key=base"
+          ls
+      - name: Artifact upload
+        uses: actions/upload-artifact@main
+        with:
+            name: "map.png"
+            path: "map.png"
+      - name: Artifact upload
+        uses: actions/upload-artifact@main
+        with:
+            name: cartes-placemap
+            path: target/release/cartes-placemap

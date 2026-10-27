@@ -1,0 +1,9 @@
+[package]
+name = "n4n5-map2img"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+maplibre_native = "0.9.3"
+pico-args = "0.5.0"
+url = "2.5.8"
