@@ -68,11 +68,6 @@ pub(crate) enum Commands {
     #[command(name = "list_crates")]
     ListCrates(ListCrates),
 
-    /// Launch pngtools cli
-    #[cfg(feature = "pngtools")]
-    #[command(name = "pngtools")]
-    PngTools,
-
     /// Launch git-mover cli
     #[cfg(feature = "git-mover")]
     #[command(name = "git-mover")]
@@ -132,8 +127,6 @@ impl Commands {
             Commands::Shortcuts { subcommand } => subcommand.run(config),
             Commands::ListCrates(subcommand) => subcommand.list_crates(config),
 
-            #[cfg(feature = "pngtools")]
-            Commands::PngTools => Self::pngtools(),
             #[cfg(feature = "git-mover")]
             Commands::GitMover(git_mover) => Self::git_mover(git_mover),
             #[cfg(feature = "galion")]
@@ -143,15 +136,6 @@ impl Commands {
             Commands::Ocr => Self::ocr(),
             Commands::Watching => Self::watching(config.debug > 0),
         }
-    }
-
-    /// Run pngtools cli
-    /// # Errors
-    /// Fails if pngtools fails
-    #[cfg(feature = "pngtools")]
-    pub fn pngtools() -> Result<(), GeneralError> {
-        pngtools::run_cli().map_err(|e| ("Error with pngtools", e))?;
-        Ok(())
     }
 
     /// Share main func
