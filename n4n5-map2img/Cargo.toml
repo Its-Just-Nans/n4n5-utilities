@@ -2,6 +2,12 @@
 name = "n4n5-map2img"
 version = "0.1.0"
 edition = "2024"
+description = "n4n5's map2img"
+documentation = "https://docs.rs/n4n5-map2img"
+license = "MIT"
+readme = "./README.md"
+keywords = ["utility"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 maplibre_native = "0.9.3"
